@@ -257,15 +257,15 @@ public class CrashHandler
 			HttpClient httpclient = new DefaultHttpClient();
 			HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad.php");
 
-			MultipartHttpEntity mpfr = new MultipartHttpEntity();
-			mpfr.addValue("device", getDeviceName());
-			mpfr.addValue("version", getVersionCode());
-			mpfr.addValue("product_name", msApplicationName);
-			mpfr.addFile("symbol_file", dumpFile, new File(mActivity.getFilesDir().getAbsolutePath() + "/" + dumpFile));
+			MultipartHttpEntity httpEntity = new MultipartHttpEntity();
+			httpEntity.addValue("device", getDeviceName());
+			httpEntity.addValue("version", getVersionCode());
+			httpEntity.addValue("product_name", msApplicationName);
+			httpEntity.addFile("symbol_file", dumpFile, new File(mActivity.getFilesDir().getAbsolutePath() + "/" + dumpFile));
 			
 			if(optionalParameters != null)
 			{
-				mpfr.addValue("optional", optionalParameters.toString());
+				httpEntity.addValue("optional", optionalParameters.toString());
 			}
 			
 			if(optionalFilesToSend != null)
@@ -273,13 +273,12 @@ public class CrashHandler
 				for(Map.Entry<String, String> file : optionalFilesToSend.entrySet())
 				{
 					File f = new File(file.getValue());
-					mpfr.addFile(file.getKey(), f.getName(), f);
+					httpEntity.addFile(file.getKey(), f.getName(), f);
 				}
 			}
 			
-			mpfr.end();
-
-			httppost.setEntity(mpfr);
+			httpEntity.finish();
+			httppost.setEntity(httpEntity);
 
 			// Execute HTTP Post Request
 			HttpResponse resp = httpclient.execute(httppost);
