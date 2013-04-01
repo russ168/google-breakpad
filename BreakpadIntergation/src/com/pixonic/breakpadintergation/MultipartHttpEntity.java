@@ -23,7 +23,7 @@ import android.util.Log;
 /// можно атачить несколько файлов
 class MultipartHttpEntity implements HttpEntity
 {
-	public final String BoundaryTag;
+	private final String BOUNDARY_TG;
 
 	private final ArrayList<InputStream> inputChuncks = new ArrayList<InputStream>(5);
 	private long totalLength = 0;
@@ -31,17 +31,14 @@ class MultipartHttpEntity implements HttpEntity
 
 	MultipartHttpEntity()
 	{
-		BoundaryTag = UUID.randomUUID().toString();
+		BOUNDARY_TG = UUID.randomUUID().toString();
 	}
 
 	/// добавить в запрос поста строковое значение `value` с именем `name`
 	public void addValue(String name, String value)
 	{
-//		String data = "\n--" + BoundaryTag + "\n"
-//				+ String.format("Content-Disposition: form-data; name=\"%s\"\n\n%s", name, value);
-		StringBuilder stringBuilder = new StringBuilder();  
-		stringBuilder.append("\n--").append(BoundaryTag);
-		stringBuilder.append("\nContent-Disposition: form-data; name=\"").append(name).append("\"\n\n").append(value);
+		StringBuilder stringBuilder = createHeaderBuilder(name);  
+		stringBuilder.append("\"\n\n").append(value);
 
 		String data = stringBuilder.toString();
 		totalLength += data.length();
@@ -54,12 +51,7 @@ class MultipartHttpEntity implements HttpEntity
 		try
 		{
 
-//			String data = "\n--" + BoundaryTag + "\n"
-//					+ String.format( "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"\nContent-Type: application/octet-stream\n\n", name, filename);
-			
-			StringBuilder stringBuilder = new StringBuilder();  
-			stringBuilder.append("\n--").append(BoundaryTag);
-			stringBuilder.append("\nContent-Disposition: form-data; name=\"").append(name);
+			StringBuilder stringBuilder = createHeaderBuilder(name);  
 			stringBuilder.append("\"; filename=\"").append(filename).append("\"\nContent-Type: application/octet-stream\n\n");
 
 			String data = stringBuilder.toString();			
@@ -74,11 +66,19 @@ class MultipartHttpEntity implements HttpEntity
 			throw e;
 		}
 	}
+	
+	private StringBuilder createHeaderBuilder(String name)
+	{
+		StringBuilder stringBuilder = new StringBuilder();  
+		stringBuilder.append("\n--").append(BOUNDARY_TG);
+		stringBuilder.append("\nContent-Disposition: form-data; name=\"").append(name);
+		return stringBuilder;
+	}
 
 	/// завершить тело поста
 	public void end()
 	{
-		String data = "\n--" + BoundaryTag + "--\n";
+		String data = "\n--" + BOUNDARY_TG + "--\n";
 		totalLength += data.length();
 		inputChuncks.add(new ByteArrayInputStream(data.getBytes()));
 
@@ -114,7 +114,7 @@ class MultipartHttpEntity implements HttpEntity
 
 	public Header getContentType()
 	{
-		return new BasicHeader("Content-Type", "multipart/form-data; boundary=" + BoundaryTag);
+		return new BasicHeader("Content-Type", "multipart/form-data; boundary=" + BOUNDARY_TG);
 	}
 
 	public boolean isChunked()
