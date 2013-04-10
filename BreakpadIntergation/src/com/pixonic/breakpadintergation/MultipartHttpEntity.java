@@ -47,12 +47,12 @@ class MultipartHttpEntity implements HttpEntity
 	 * @param value
 	 *            a value of item
 	 */
-	public void addValue(String name, String value)
+	public void addValue(final String name, final String value)
 	{
-		StringBuilder stringBuilder = createHeaderBuilder(name);
+		final StringBuilder stringBuilder = createHeaderBuilder(name);
 		stringBuilder.append("\"\n\n").append(value);
 
-		String data = stringBuilder.toString();
+		final String data = stringBuilder.toString();
 		mTotalLength += data.length();
 		mInputChuncks.add(new ByteArrayInputStream(data.getBytes()));
 	}
@@ -68,15 +68,15 @@ class MultipartHttpEntity implements HttpEntity
 	 *            a file to be added
 	 * @throws IOException
 	 */
-	public void addFile(String name, String fileName, File file) throws IOException
+	public void addFile(final String name, final String fileName, final File file) throws IOException
 	{
 		try
 		{
-			StringBuilder stringBuilder = createHeaderBuilder(name);
+			final StringBuilder stringBuilder = createHeaderBuilder(name);
 			stringBuilder.append("\"; filename=\"").append(fileName)
 					.append("\"\nContent-Type: application/octet-stream\n\n");
 
-			String data = stringBuilder.toString();
+			final String data = stringBuilder.toString();
 
 			mTotalLength += file.length() + data.length();
 			mInputChuncks.add(new ByteArrayInputStream(data.getBytes()));
@@ -89,9 +89,9 @@ class MultipartHttpEntity implements HttpEntity
 		}
 	}
 
-	private StringBuilder createHeaderBuilder(String name)
+	private StringBuilder createHeaderBuilder(final String name)
 	{
-		StringBuilder stringBuilder = new StringBuilder();
+		final StringBuilder stringBuilder = new StringBuilder();
 		stringBuilder.append("\n--").append(BOUNDARY_TAG);
 		stringBuilder.append("\nContent-Disposition: form-data; name=\"").append(name);
 		return stringBuilder;
@@ -102,7 +102,7 @@ class MultipartHttpEntity implements HttpEntity
 	 */
 	public void finish()
 	{
-		String data = "\n--" + BOUNDARY_TAG + "--\n";
+		final String data = "\n--" + BOUNDARY_TAG + "--\n";
 		mTotalLength += data.length();
 		mInputChuncks.add(new ByteArrayInputStream(data.getBytes()));
 
@@ -206,17 +206,17 @@ class MultipartHttpEntity implements HttpEntity
 	 * @see org.apache.http.HttpEntity#writeTo(OutputStream)
 	 */
 	@Override
-	public void writeTo(OutputStream outstream)
+	public void writeTo(final OutputStream outstream)
 	{
-		for(InputStream inp : mInputChuncks)
+		for(final InputStream inp : mInputChuncks)
 		{
 			writeFromInputToOutput(inp, outstream);
 		}
 	}
 
-	private int writeFromInputToOutput(InputStream source, OutputStream dest)
+	private int writeFromInputToOutput(final InputStream source, final OutputStream dest)
 	{
-		byte[] buffer = new byte[BUFFER_SIZE];
+		final byte[] buffer = new byte[BUFFER_SIZE];
 		int bytesRead = EOF_MARK;
 		int count = 0;
 		try

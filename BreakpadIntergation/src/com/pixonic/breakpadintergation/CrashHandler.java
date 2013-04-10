@@ -36,11 +36,11 @@ public class CrashHandler
 
 	private ProgressDialog mSendCrashReportDialog;
 	private static String msApplicationName = null;
-	
-	private static HashMap< String, String > optionalFilesToSend = null;
+
+	private static HashMap<String, String> optionalFilesToSend = null;
 	private static JSONObject optionalParameters = null;
 
-	public static void init(Activity activity)
+	public static void init(final Activity activity)
 	{
 		if(msSingletonInstance == null)
 		{
@@ -52,7 +52,7 @@ public class CrashHandler
 		}
 	}
 
-	private CrashHandler(Activity activity)
+	private CrashHandler(final Activity activity)
 	{
 		mActivity = activity;
 		if(msApplicationName == null)
@@ -69,7 +69,7 @@ public class CrashHandler
 	 * @param appName
 	 *            application name
 	 */
-	public static void setApplicationName(String appName)
+	public static void setApplicationName(final String appName)
 	{
 		assert (appName != null);
 		msApplicationName = appName;
@@ -77,16 +77,18 @@ public class CrashHandler
 
 	///  Sets additional file with name `name` to send to server with path `file`
 	///  File path needs to be absolute
-	public static void includeFile(String name, String file)
+	public static void includeFile(final String name, final String file)
 	{
 		if(optionalFilesToSend == null)
-			optionalFilesToSend = new HashMap< String, String >();
-			
+		{
+			optionalFilesToSend = new HashMap<String, String>();
+		}
+
 		optionalFilesToSend.put(name, file);
 	}
-	
+
 	///  Sets additional request data for dump as json object `params`
-	public static void includeJsonData(JSONObject params)
+	public static void includeJsonData(final JSONObject params)
 	{
 		optionalParameters = params;
 	}
@@ -100,14 +102,14 @@ public class CrashHandler
 	 * launch the crash handler (in its own process), because when we return
 	 * from this function the process will soon exit.
 	 */
-	static public void nativeCrashed(String dumpFile)
+	static public void nativeCrashed(final String dumpFile)
 	{
 		if(msSingletonInstance != null)
 		{
 			msSingletonInstance.onCrashed(dumpFile);
 		}
 
-		RuntimeException exception = new RuntimeException(
+		final RuntimeException exception = new RuntimeException(
 				"crashed here (native trace should follow after the Java trace)");
 		exception.printStackTrace();
 		throw exception;
@@ -115,7 +117,7 @@ public class CrashHandler
 
 	///  CRASH HANDLING PROCESS  ///
 
-	private void onCrashed(String dumpFile)
+	private void onCrashed(final String dumpFile)
 	{
 		try
 		{
@@ -152,14 +154,14 @@ public class CrashHandler
 
 	private void createUploadPromtAlertImpl(final String dumpFile)
 	{
-		AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
+		final AlertDialog.Builder builder = new AlertDialog.Builder(mActivity);
 		builder.setTitle(R.string.promt_title);
 		builder.setMessage(R.string.promt_message);
 
 		builder.setPositiveButton(R.string.button_send, new DialogInterface.OnClickListener()
 		{
 			@Override
-			public void onClick(DialogInterface dialog, int which)
+			public void onClick(final DialogInterface dialog, final int which)
 			{
 				sendCrashReport(dumpFile);
 			}
@@ -168,7 +170,7 @@ public class CrashHandler
 		builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener()
 		{
 			@Override
-			public void onClick(DialogInterface dialog, int which)
+			public void onClick(final DialogInterface dialog, final int which)
 			{
 				CrashHandler.this.onCancelDialog(dialog);
 			}
@@ -178,7 +180,7 @@ public class CrashHandler
 		builder.setOnCancelListener(new DialogInterface.OnCancelListener()
 		{
 			@Override
-			public void onCancel(DialogInterface dialog)
+			public void onCancel(final DialogInterface dialog)
 			{
 				CrashHandler.this.onCancelDialog(dialog);
 			}
@@ -187,7 +189,7 @@ public class CrashHandler
 		builder.show();
 	}
 
-	private void onCancelDialog(DialogInterface dialog)
+	private void onCancelDialog(final DialogInterface dialog)
 	{
 		dialog.dismiss();
 		finish();
@@ -234,19 +236,22 @@ public class CrashHandler
 		{
 			pInfo = mActivity.getPackageManager().getPackageInfo(mActivity.getPackageName(), 0);
 		}
-		catch (Throwable e)
+		catch(final Throwable e)
 		{
 			e.printStackTrace();
 			pInfo = null;
 		}
-		if(pInfo == null) return "UnknownVersion";
+		if(pInfo == null)
+		{
+			return "UnknownVersion";
+		}
 		return String.valueOf(pInfo.versionCode);
 	}
 
 	protected String getDeviceName()
 	{
-		String device = Build.MANUFACTURER + "," + Build.MODEL;
-		
+		final String device = Build.MANUFACTURER + "," + Build.MODEL;
+
 		return device.replaceAll("\\W", "_");
 	}
 
@@ -254,36 +259,37 @@ public class CrashHandler
 	{
 		try
 		{
-			HttpClient httpclient = new DefaultHttpClient();
-			HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad.php");
+			final HttpClient httpclient = new DefaultHttpClient();
+			final HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad.php");
 
-			MultipartHttpEntity httpEntity = new MultipartHttpEntity();
+			final MultipartHttpEntity httpEntity = new MultipartHttpEntity();
 			httpEntity.addValue("device", getDeviceName());
 			httpEntity.addValue("version", getVersionCode());
 			httpEntity.addValue("product_name", msApplicationName);
-			httpEntity.addFile("symbol_file", dumpFile, new File(mActivity.getFilesDir().getAbsolutePath() + "/" + dumpFile));
-			
+			httpEntity.addFile("symbol_file", dumpFile, new File(mActivity.getFilesDir().getAbsolutePath() + "/"
+					+ dumpFile));
+
 			if(optionalParameters != null)
 			{
 				httpEntity.addValue("optional", optionalParameters.toString());
 			}
-			
+
 			if(optionalFilesToSend != null)
 			{
-				for(Map.Entry<String, String> file : optionalFilesToSend.entrySet())
+				for(final Map.Entry<String, String> file : optionalFilesToSend.entrySet())
 				{
-					File f = new File(file.getValue());
+					final File f = new File(file.getValue());
 					httpEntity.addFile(file.getKey(), f.getName(), f);
 				}
 			}
-			
+
 			httpEntity.finish();
 			httppost.setEntity(httpEntity);
 
 			// Execute HTTP Post Request
-			HttpResponse resp = httpclient.execute(httppost);
+			final HttpResponse resp = httpclient.execute(httppost);
 
-			Log.v(TAG, "request complete, code = " + String.valueOf(resp.getStatusLine().getStatusCode()) );
+			Log.v(TAG, "request complete, code = " + String.valueOf(resp.getStatusLine().getStatusCode()));
 		}
 		catch(final Throwable t)
 		{
