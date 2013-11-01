@@ -11,7 +11,6 @@ import java.util.Map;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONObject;
 
 import android.app.Activity;
@@ -23,6 +22,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.os.AsyncTask;
+import android.net.http.AndroidHttpClient;
 
 /**
  *
@@ -213,18 +214,13 @@ public class CrashHandler
 		});
 	}
 
-	private void sendCrashReport(final String dumpFile)
-	{
-		createSendDialog();
-		sendCrashReportImpl(dumpFile);
-		desptorySendDialog();
-	}
-
 	private void createSendDialog()
 	{
 		mSendCrashReportDialog = new ProgressDialog(mActivity);
 		mSendCrashReportDialog.setMax(100);
 		mSendCrashReportDialog.setMessage(mActivity.getText(R.string.sending_crash_report));
+		mSendCrashReportDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+		mSendCrashReportDialog.setIndeterminate(false);
 		mSendCrashReportDialog.setCancelable(false);
 		mSendCrashReportDialog.show();
 	}
@@ -250,68 +246,95 @@ public class CrashHandler
 
 	protected String getDeviceName()
 	{
-		final String device = Build.MANUFACTURER + "," + Build.MODEL;
+		final String device = Build.MANUFACTURER.replaceAll("\\W", "-") + 
+			"_" + Build.MODEL.replaceAll("\\W", "-");
 
-		return device.replaceAll("\\W", "_");
+		return device;
 	}
 
-	private void sendCrashReportImpl(final String dumpFile)
+	private void sendCrashReport(final String dumpFile)
 	{
-		try
-		{
-			final HttpClient httpclient = new DefaultHttpClient();
-			final HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad.php");
-
-			final MultipartHttpEntity httpEntity = new MultipartHttpEntity();
-			httpEntity.addValue("device", getDeviceName());
-			httpEntity.addValue("version", getVersionCode());
-			httpEntity.addValue("product_name", msApplicationName);
-			httpEntity.addFile("symbol_file", dumpFile, new File(mActivity.getFilesDir().getAbsolutePath() + "/"
-					+ dumpFile));
-
-			if(optionalParameters != null)
-			{
-				httpEntity.addValue("optional", optionalParameters.toString());
-			}
-
-			if(optionalFilesToSend != null)
-			{
-				for(final Map.Entry<String, String> file : optionalFilesToSend.entrySet())
-				{
-					final File f = new File(file.getValue());
-					httpEntity.addFile(file.getKey(), f.getName(), f);
-				}
-			}
-
-			httpEntity.finish();
-			httppost.setEntity(httpEntity);
-
-			// Execute HTTP Post Request
-			final HttpResponse resp = httpclient.execute(httppost);
-
-			Log.v(TAG, "request complete, code = " + String.valueOf(resp.getStatusLine().getStatusCode()));
-		}
-		catch(final Throwable t)
-		{
-			Log.e(TAG, "failed to send file", t);
-		}
-
+		(new SendCrashReportTask()).execute(dumpFile);
 	}
 
-	private void desptorySendDialog()
+	private class SendCrashReportTask extends AsyncTask< String, Integer, Boolean > {
+		protected Boolean doInBackground(String ... dumpFiles) {
+			sendFile(dumpFiles[0]);
+			return true;
+		}
+
+		protected void onPreExecute() {
+			createSendDialog();
+		}
+		protected void onPostExecute(Boolean result) {
+			desptroySendDialog();
+		}
+	
+		protected void onProgressUpdate(Integer... progress) {
+			mSendCrashReportDialog.setProgress(progress[0]);
+		}
+
+	
+		private void sendFile(String dumpFile)
+		{
+			final SendCrashReportTask task = this;
+			try
+			{
+				final HttpClient httpclient = AndroidHttpClient.newInstance("Breakpad Client");
+				final HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad2.php");
+
+				final MultipartHttpEntity httpEntity = new MultipartHttpEntity(new MultipartHttpEntity.ProgressCallback() {
+					@Override
+					public void onProgress(long current, long target) {
+						task.publishProgress((int) ((float)(current * 100) / (float)target));
+					}
+				});
+				httpEntity.addValue("device", getDeviceName());
+				httpEntity.addValue("version", getVersionCode());
+				httpEntity.addValue("product_name", msApplicationName);
+				httpEntity.addValue("report_id", dumpFile.replace(".dmp", ""));
+				httpEntity.addFile("symbol_file", "report.dmp", new File(mActivity.getFilesDir().getAbsolutePath() + "/"
+						+ dumpFile));
+
+				if(optionalParameters != null)
+				{
+					httpEntity.addValue("optional", optionalParameters.toString());
+				}
+
+				if(optionalFilesToSend != null)
+				{
+					for(final Map.Entry<String, String> file : optionalFilesToSend.entrySet())
+					{
+						final File f = new File(file.getValue());
+						httpEntity.addFile(file.getKey(), f.getName(), f);
+					}
+				}
+
+				httpEntity.finish();
+				httppost.setEntity(httpEntity);
+				
+				httppost.setHeader("Connection", "close");
+
+				// Execute HTTP Post Request
+				final HttpResponse resp = httpclient.execute(httppost);
+
+				Log.v(TAG, "request complete, code = " + String.valueOf(resp.getStatusLine().getStatusCode()));
+			}
+			catch(final Throwable t)
+			{
+				Log.e(TAG, "failed to send file", t);
+			}
+			
+			synchronized(this) {
+				this.notifyAll();
+			}
+		}
+	}
+	
+	private void desptroySendDialog()
 	{
 		final ProgressDialog dialog = mSendCrashReportDialog;
-		if(dialog != null)
-		{
-			new Handler().post(new Runnable()
-			{
-				@Override
-				public void run()
-				{
-					dialog.dismiss();
-				}
-			});
-		}
+		dialog.dismiss();
 
 		finish();
 	}

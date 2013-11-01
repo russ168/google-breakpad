@@ -25,6 +25,10 @@ import android.util.Log;
  */
 class MultipartHttpEntity implements HttpEntity
 {
+	public static interface ProgressCallback {
+		void onProgress(long current, long target);
+	}
+
 	private final String BOUNDARY_TAG;
 
 	private static final int BUFFER_SIZE = 2048;
@@ -33,10 +37,18 @@ class MultipartHttpEntity implements HttpEntity
 	private final ArrayList<InputStream> mInputChuncks = new ArrayList<InputStream>(5);
 	private long mTotalLength = 0;
 	private boolean mReady = false;
+	
+	private ProgressCallback progressCallback = null;
 
 	MultipartHttpEntity()
 	{
 		BOUNDARY_TAG = UUID.randomUUID().toString();
+	}
+
+	MultipartHttpEntity(ProgressCallback progressCallback)
+	{
+		BOUNDARY_TAG = UUID.randomUUID().toString();
+		this.progressCallback = progressCallback;
 	}
 
 	/**
@@ -102,6 +114,8 @@ class MultipartHttpEntity implements HttpEntity
 	 */
 	public void finish()
 	{
+		Log.w("MultipartHttpEntity", "finish()");
+	
 		final String data = "\n--" + BOUNDARY_TAG + "--\n";
 		mTotalLength += data.length();
 		mInputChuncks.add(new ByteArrayInputStream(data.getBytes()));
@@ -117,6 +131,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public void consumeContent()
 	{
+		Log.w("MultipartHttpEntity", "consumeContent()");
 		mTotalLength = 0;
 		mInputChuncks.clear();
 
@@ -131,6 +146,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public InputStream getContent()
 	{
+		Log.w("MultipartHttpEntity", "getContent()");
 		return new SequenceInputStream(Collections.enumeration(mInputChuncks));
 	}
 
@@ -142,6 +158,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public Header getContentEncoding()
 	{
+		Log.w("MultipartHttpEntity", "getContentEncoding()");
 		return null;
 	}
 
@@ -153,6 +170,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public long getContentLength()
 	{
+		Log.w("MultipartHttpEntity", "getContentLength() = " + mTotalLength);
 		return mTotalLength;
 	}
 
@@ -164,6 +182,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public Header getContentType()
 	{
+		Log.w("MultipartHttpEntity", "getContentType()");
 		return new BasicHeader("Content-Type", "multipart/form-data; boundary=" + BOUNDARY_TAG);
 	}
 
@@ -175,6 +194,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public boolean isChunked()
 	{
+		Log.w("MultipartHttpEntity", "isChunked()");
 		return false;
 	}
 
@@ -186,6 +206,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public boolean isRepeatable()
 	{
+		Log.w("MultipartHttpEntity", "isRepeatable()");
 		return false;
 	}
 
@@ -197,6 +218,7 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public boolean isStreaming()
 	{
+		Log.w("MultipartHttpEntity", "isStreaming() = " + mReady);
 		return mReady;
 	}
 
@@ -208,13 +230,16 @@ class MultipartHttpEntity implements HttpEntity
 	@Override
 	public void writeTo(final OutputStream outstream)
 	{
+		Log.w("MultipartHttpEntity", "writeTo()");
+		long current = 0;
 		for(final InputStream inp : mInputChuncks)
 		{
-			writeFromInputToOutput(inp, outstream);
+			current += writeFromInputToOutput(inp, outstream, current);
 		}
+		Log.w("MultipartHttpEntity", "writeEnd()");
 	}
 
-	private int writeFromInputToOutput(final InputStream source, final OutputStream dest)
+	private long writeFromInputToOutput(final InputStream source, final OutputStream dest, long current)
 	{
 		final byte[] buffer = new byte[BUFFER_SIZE];
 		int bytesRead = EOF_MARK;
@@ -223,14 +248,21 @@ class MultipartHttpEntity implements HttpEntity
 		{
 			while((bytesRead = source.read(buffer)) != EOF_MARK)
 			{
+				Log.w("MultipartHttpEntity", "read = " + bytesRead);
+			
 				dest.write(buffer, 0, bytesRead);
 				count += bytesRead;
+				
+				if(progressCallback != null) {
+					progressCallback.onProgress(current+count, mTotalLength);
+				}
 			}
+			
 		}
 		catch(final IOException e)
 		{
-			android.util.Log.e("TAG", "IOException", e);
+			Log.e("TAG", "IOException", e);
 		}
-		return count;
+		return (long)count;
 	}
 }
