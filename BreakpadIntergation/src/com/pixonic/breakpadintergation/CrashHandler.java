@@ -34,6 +34,7 @@ public class CrashHandler
 	private static CrashHandler msSingletonInstance;
 
 	private Activity mActivity;
+	private String mSubmitUrl;
 
 	private ProgressDialog mSendCrashReportDialog;
 	private static String msApplicationName = null;
@@ -41,21 +42,23 @@ public class CrashHandler
 	private static HashMap<String, String> optionalFilesToSend = null;
 	private static JSONObject optionalParameters = null;
 
-	public static void init(final Activity activity)
+	public static void init(final Activity activity, final String submitUrl)
 	{
 		if(msSingletonInstance == null)
 		{
-			msSingletonInstance = new CrashHandler(activity);
+			msSingletonInstance = new CrashHandler(activity, submitUrl);
 		}
 		else
 		{
 			msSingletonInstance.mActivity = activity;
+			msSingletonInstance.mSubmitUrl = submitUrl;
 		}
 	}
 
-	private CrashHandler(final Activity activity)
+	private CrashHandler(final Activity activity, final String submitUrl)
 	{
 		mActivity = activity;
+		mSubmitUrl = submitUrl;
 		if(msApplicationName == null)
 		{
 			msApplicationName = mActivity.getApplicationContext().getPackageName();
@@ -254,10 +257,17 @@ public class CrashHandler
 
 	private void sendCrashReport(final String dumpFile)
 	{
-		(new SendCrashReportTask()).execute(dumpFile);
+		(new SendCrashReportTask(mSubmitUrl)).execute(dumpFile);
 	}
 
 	private class SendCrashReportTask extends AsyncTask< String, Integer, Boolean > {
+	
+		String mSubmitUrl;
+		SendCrashReportTask(String submitUrl)
+		{
+			mSubmitUrl = submitUrl;
+		}
+	
 		protected Boolean doInBackground(String ... dumpFiles) {
 			sendFile(dumpFiles[0]);
 			return true;
@@ -281,7 +291,7 @@ public class CrashHandler
 			try
 			{
 				final HttpClient httpclient = AndroidHttpClient.newInstance("Breakpad Client");
-				final HttpPost httppost = new HttpPost("http://dwarves-analize.pixonic.ru/breakpad2.php");
+				final HttpPost httppost = new HttpPost(mSubmitUrl);
 
 				final MultipartHttpEntity httpEntity = new MultipartHttpEntity(new MultipartHttpEntity.ProgressCallback() {
 					@Override
